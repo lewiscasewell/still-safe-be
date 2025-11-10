@@ -1,0 +1,35 @@
+import { Hono } from "hono";
+
+export const wellKnown = new Hono();
+
+wellKnown.get('/apple-app-site-association', (c) => {
+    return c.json({
+        applinks: {
+            details: [
+                {
+                    appIDs: ['KBZSY5H6TS.com.still.safe', 'KBZSY5H6TS.com.still.safe.dev'],
+                    components: [{ '/': '*' }, { '/': '/*' }],
+                },
+            ],
+        },
+        webcredentials: {
+            apps: ['KBZSY5H6TS.com.still.safe', 'KBZSY5H6TS.com.still.safe.dev'],
+        },
+        appclips: {},
+    });
+});
+
+wellKnown.get('/assetlinks.json', (c) => {
+    return c.json([
+        {
+            relation: ['delegate_permission/common.handle_all_urls'],
+            target: {
+                namespace: 'android_app',
+                package_name: 'app.web.react_native_passkeys',
+                sha256_cert_fingerprints: [
+                    'FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C',
+                ],
+            },
+        },
+    ]);
+});
