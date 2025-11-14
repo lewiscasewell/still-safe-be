@@ -1,15 +1,28 @@
-version: '3.8'
-
 services:
-  hono-app:
+  api:
     build: .
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # your code should read the key from this path:
+      APPLE_KEY_PATH: /run/secrets/apple_key.p8
+      REDIS_URL: redis://redis:6379
+    env_file:
+      - /home/lewiscasewell/secrets/.env
+    volumes:
+      - /home/lewiscasewell/secrets/AuthKey_R8A7PNSD3V.p8:/run/secrets/apple_key.p8:ro
+    expose:
+      - "3000"
     ports:
       - "3000:3000"
     depends_on:
       - redis
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - APN_PRODUCTION=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/health || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
 
   redis:
     image: redis:7-alpine

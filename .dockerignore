@@ -1,0 +1,63 @@
+# Secrets - never copy these into Docker
+*.p8
+.env
+.env.*
+secrets/
+
+# Dependencies - will be installed in Docker
+node_modules/
+# Note: bun.lock/bun.lockb should be included for reproducible builds
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Docker files
+Dockerfile
+docker-compose.yml
+docker-compose.dev.yml
+.dockerignore
+
+# Documentation
+README.md
+*.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts and caches
+dist/
+build/
+*.tsbuildinfo
+.cache/
+.parcel-cache/
+
+# Logs
+*.log
+logs/
+
+# Test files (if you add tests later)
+test/
+tests/
+__tests__/
+*.test.ts
+*.spec.ts
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+

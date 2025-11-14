@@ -18,6 +18,7 @@ app.use('*', cors());
 app.use('*', logger());
 
 app.get('/', (c) => c.text('Hello, world'));
+app.get('/health', (c) => c.json({ status: 'ok' }));
 app.get('/test-notification', async (c) => {
     try {
         console.log("Sending notification to admin");

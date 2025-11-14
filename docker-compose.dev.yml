@@ -1,0 +1,35 @@
+# Local development docker-compose file
+# Run with: docker-compose -f docker-compose.dev.yml up
+
+services:
+  api:
+    build: .
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      REDIS_URL: redis://redis:6379
+      APPLE_KEY_PATH: /app/AuthKey_R8A7PNSD3V.p8
+    env_file:
+      - .env
+    volumes:
+      # Mount the local key file for development
+      - ./AuthKey_R8A7PNSD3V.p8:/app/AuthKey_R8A7PNSD3V.p8:ro
+      # Mount source for hot reload (if you want)
+      - ./src:/app/src:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data-dev:/data
+    restart: unless-stopped
+
+volumes:
+  redis-data-dev:
+

@@ -25,13 +25,16 @@ async function checkHeartbeat() {
                         title: "⚠️ Device Offline",
                         body: "Please check the device now."
                     });
-                    const timestamp = Date.now().toString().slice(0, -3);
-                    await redis.set(alertOfflineKey(timestamp), "no-ack");
-                    // Throttle notifications - only send once per hour
-                    await redis.set(notificationThrottleKey, 'true');
-                    await redis.expire(notificationThrottleKey, 60 * 60); // 1 hour
-
-                    console.log(`📱 Sent offline notification`);
+                    // Only mark as sent if notification was actually sent (has device token)
+                    const deviceToken = await redis.get(`push-token:ios:admin`);
+                    if (deviceToken) {
+                        const timestamp = Date.now().toString().slice(0, -3);
+                        await redis.set(alertOfflineKey(timestamp), "no-ack");
+                        // Throttle notifications - only send once per hour
+                        await redis.set(notificationThrottleKey, 'true');
+                        await redis.expire(notificationThrottleKey, 60 * 60); // 1 hour
+                        console.log(`📱 Sent offline notification`);
+                    }
                 } catch (err: any) {
                     console.error(`Failed to send offline notification:`, err);
                 }
@@ -39,11 +42,15 @@ async function checkHeartbeat() {
         } else {
             const hasNotificationSent = await redis.get(notificationThrottleKey);
             if (hasNotificationSent) {
-                await sendNotification({
-                    userId: "admin",
-                    title: "🎉 Device is back online",
-                    body: "Have a great rest of your day!"
-                });
+                try {
+                    await sendNotification({
+                        userId: "admin",
+                        title: "🎉 Device is back online",
+                        body: "Have a great rest of your day!"
+                    });
+                } catch (err: any) {
+                    console.error(`Failed to send online notification:`, err);
+                }
             }
             // Heartbeat is back - clear notification throttle so we can notify again if it goes down
             await redis.del(notificationThrottleKey);
