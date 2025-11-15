@@ -155,7 +155,6 @@ auth.post("/webauthn/login/options", async (c) => {
 auth.post("/webauthn/login/verify", async (c) => {
     try {
         const body = await c.req.json();
-        console.log("body", body);
         const { assertion } = body;
         const expectedChallenge = await redis.get(challengeKey(userId));
         if (!expectedChallenge) return c.json({ error: "No challenge" }, 400);
