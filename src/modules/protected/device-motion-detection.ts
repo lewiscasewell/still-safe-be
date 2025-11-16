@@ -1,22 +1,20 @@
 import { redis } from "bun";
-import { Hono, type Context, type Next } from "hono";
+import { Hono } from "hono";
 import { sendNotification } from "../../service/push-notification";
+import { deviceHashMiddleware } from "../../middleware/device-hash";
 
 export const deviceMotionDetection = new Hono();
 
 const heartbeatKey = 'heartbeat'
 const alertLogKey = (ts: string) => `alert:motion:${ts}`;
 
-const withDeviceHash = async (c: Context, next: Next) => {
-    const headerHash = c.req.header('X-Device-Hash');
-    if (headerHash !== process.env.DEVICE_HASH) {
-        return c.json({ error: 'Invalid device hash' }, 400);
-    }
-    await next();
-}
+deviceMotionDetection.get("/otp", deviceHashMiddleware, async (c) => {
+    const otp = await redis.get(`otp:admin`)
+    return c.text(otp ?? "");
+});
 
 // protected for only ESP32
-deviceMotionDetection.post('/alert', withDeviceHash, async (c) => {
+deviceMotionDetection.post('/alert', deviceHashMiddleware, async (c) => {
     const body = await c.req.json();
     const { timestamp } = body;
 
@@ -30,7 +28,7 @@ deviceMotionDetection.post('/alert', withDeviceHash, async (c) => {
 });
 
 // protected for only ESP32
-deviceMotionDetection.post('/heartbeat', withDeviceHash, async (c) => {
+deviceMotionDetection.post('/heartbeat', deviceHashMiddleware, async (c) => {
     const body = await c.req.json();
     const { timestamp } = body;
 
