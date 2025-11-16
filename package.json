@@ -17,6 +17,6 @@
   "scripts": {
     "start": "bun src/index.ts",
     "dev:docker": "docker compose -f docker-compose.dev.yml up --build",
-    "docker:prod": "docker compose up --build"
+    "docker:prod": "docker compose up --build -d"
   }
 }
