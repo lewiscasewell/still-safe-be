@@ -1,30 +1,16 @@
-import { Hono } from 'hono';
 import { redis } from 'bun';
 import { sendTelegramMessage } from '../service/telegram';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
-const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || crypto.randomUUID();
 
-export const telegram = new Hono();
+let offset = 0;
 
-telegram.post('/webhook', async (c) => {
-    // Verify secret token header
-    const secretHeader = c.req.header('X-Telegram-Bot-Api-Secret-Token');
-    if (secretHeader !== WEBHOOK_SECRET) {
-        return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const update = await c.req.json();
+async function handleUpdate(update: any) {
     const message = update?.message;
-    if (!message?.text || !message?.chat?.id) {
-        return c.json({ ok: true });
-    }
+    if (!message?.text || !message?.chat?.id) return;
 
-    // Only respond to our chat
-    if (String(message.chat.id) !== TELEGRAM_CHAT_ID) {
-        return c.json({ ok: true });
-    }
+    if (String(message.chat.id) !== TELEGRAM_CHAT_ID) return;
 
     const text = message.text.trim();
     const [command, ...args] = text.split(/\s+/);
@@ -48,9 +34,37 @@ telegram.post('/webhook', async (c) => {
         console.error('Error handling Telegram command:', err);
         await sendTelegramMessage('Something went wrong processing your command.');
     }
+}
 
-    return c.json({ ok: true });
-});
+async function poll() {
+    try {
+        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${offset}&timeout=30`;
+        const res = await fetch(url);
+        const data = await res.json() as any;
+
+        if (data.ok && data.result.length > 0) {
+            for (const update of data.result) {
+                offset = update.update_id + 1;
+                await handleUpdate(update);
+            }
+        }
+    } catch (err) {
+        console.error('Telegram polling error:', err);
+        await new Promise(r => setTimeout(r, 5000));
+    }
+}
+
+export async function startTelegramPolling() {
+    // Remove any existing webhook first
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook`);
+    console.log('Telegram polling started');
+
+    (async () => {
+        while (true) {
+            await poll();
+        }
+    })();
+}
 
 async function handleStatus() {
     const heartbeat = await redis.get('heartbeat');
@@ -80,7 +94,6 @@ async function handleAlerts() {
 
 async function handleAck(arg: string) {
     if (arg) {
-        // Acknowledge specific alert
         const key = `alert:${arg}`;
         const exists = await redis.get(key);
         if (exists) {
@@ -90,7 +103,6 @@ async function handleAck(arg: string) {
             await sendTelegramMessage(`Alert <code>${key}</code> not found.`);
         }
     } else {
-        // Acknowledge all unacknowledged alerts
         let acked = 0;
         const keys = await redis.keys('alert:*');
         for (const key of keys) {
@@ -113,23 +125,4 @@ async function handleHelp() {
         '/ack — Acknowledge all unacknowledged alerts\n' +
         '/ack motion:1710100000 — Acknowledge a specific alert'
     );
-}
-
-export async function registerWebhook(webhookUrl: string) {
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook`;
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            url: `${webhookUrl}/telegram/webhook`,
-            secret_token: WEBHOOK_SECRET,
-        }),
-    });
-
-    const result = await res.json();
-    if (result.ok) {
-        console.log('Telegram webhook registered successfully');
-    } else {
-        console.error('Failed to register Telegram webhook:', result);
-    }
 }
