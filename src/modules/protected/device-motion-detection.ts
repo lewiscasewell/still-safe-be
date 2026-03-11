@@ -18,7 +18,7 @@ deviceMotionDetection.post('/alert', deviceHashMiddleware, async (c) => {
     }
 
     await redis.set(alertLogKey(timestamp), "no-ack");
-    await sendTelegramAlert({ title: "Motion Alert", body: "Please check your device now." });
+    await sendTelegramAlert({ title: "Motion Alert", body: "Please check your device now.", alertKey: `motion:${timestamp}` });
     return c.json({ status: 'ok' });
 });
 

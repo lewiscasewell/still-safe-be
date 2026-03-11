@@ -1,12 +1,49 @@
 import { redis } from 'bun';
-import { sendTelegramMessage } from '../service/telegram';
+import { sendTelegramMessage, registerBotCommands, answerCallbackQuery, editMessageReplyMarkup } from '../service/telegram';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
 let offset = 0;
 
+function parseAlertKey(key: string): { type: string; date: string } {
+    // key format: "alert:motion:1710100000" or "alert:offline:1710100000"
+    const parts = key.split(':');
+    const type = parts[1] ?? 'unknown';
+    const timestamp = parseInt(parts[2] ?? '0', 10);
+    const date = timestamp
+        ? new Date(timestamp * 1000).toLocaleString('en-GB', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+          })
+        : 'unknown';
+    return { type, date };
+}
+
 async function handleUpdate(update: any) {
+    // Handle callback queries (inline button taps)
+    if (update.callback_query) {
+        const cb = update.callback_query;
+        if (String(cb.message?.chat?.id) !== TELEGRAM_CHAT_ID) return;
+
+        const data = cb.data as string;
+        if (data.startsWith('ack:')) {
+            const alertKey = `alert:${data.slice(4)}`;
+            const exists = await redis.get(alertKey);
+            if (exists && exists !== 'ack') {
+                await redis.set(alertKey, 'ack');
+                await answerCallbackQuery(cb.id, `Acknowledged ${alertKey}`);
+            } else {
+                await answerCallbackQuery(cb.id, 'Already acknowledged');
+            }
+            await editMessageReplyMarkup(cb.message.message_id);
+        }
+        return;
+    }
+
     const message = update?.message;
     if (!message?.text || !message?.chat?.id) return;
 
@@ -21,10 +58,16 @@ async function handleUpdate(update: any) {
                 await handleStatus();
                 break;
             case '/alerts':
-                await handleAlerts();
+                await handleAlerts(false);
+                break;
+            case '/alerts_all':
+                await handleAlerts(true);
                 break;
             case '/ack':
                 await handleAck(args.join(' '));
+                break;
+            case '/help':
+                await handleHelp();
                 break;
             default:
                 await handleHelp();
@@ -57,6 +100,7 @@ async function poll() {
 export async function startTelegramPolling() {
     // Remove any existing webhook first
     await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook`);
+    await registerBotCommands();
     console.log('Telegram polling started');
 
     (async () => {
@@ -75,7 +119,7 @@ async function handleStatus() {
     }
 }
 
-async function handleAlerts() {
+async function handleAlerts(showAll: boolean) {
     const keys = await redis.keys('alert:*');
 
     if (keys.length === 0) {
@@ -86,10 +130,19 @@ async function handleAlerts() {
     const alerts: string[] = [];
     for (const key of keys) {
         const value = await redis.get(key);
-        alerts.push(`• <code>${key}</code> — ${value}`);
+        if (!showAll && value === 'ack') continue;
+        const { type, date } = parseAlertKey(key);
+        const status = value === 'ack' ? '✅' : '🔴';
+        alerts.push(`${status} <b>${type}</b> — ${date} — <code>${key}</code>`);
     }
 
-    await sendTelegramMessage(`<b>Alerts (${alerts.length})</b>\n${alerts.join('\n')}`);
+    if (alerts.length === 0) {
+        await sendTelegramMessage('No unacknowledged alerts.');
+        return;
+    }
+
+    const heading = showAll ? 'All Alerts' : 'Unacknowledged Alerts';
+    await sendTelegramMessage(`<b>${heading} (${alerts.length})</b>\n${alerts.join('\n')}`);
 }
 
 async function handleAck(arg: string) {
@@ -121,8 +174,10 @@ async function handleHelp() {
     await sendTelegramMessage(
         '<b>SafePi Bot Commands</b>\n' +
         '/status — Check device online/offline status\n' +
-        '/alerts — List all alerts\n' +
+        '/alerts — List unacknowledged alerts\n' +
+        '/alerts_all — List all alerts\n' +
         '/ack — Acknowledge all unacknowledged alerts\n' +
-        '/ack motion:1710100000 — Acknowledge a specific alert'
+        '/ack motion:1710100000 — Acknowledge a specific alert\n' +
+        '/help — Show this help message'
     );
 }

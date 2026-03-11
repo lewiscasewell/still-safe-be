@@ -20,7 +20,8 @@ async function checkHeartbeat() {
                     await redis.set(alertOfflineKey(timestamp), "no-ack");
                     await sendTelegramAlert({
                         title: "⚠️ Device Offline",
-                        body: "Please check the device now."
+                        body: "Please check the device now.",
+                        alertKey: `offline:${timestamp}`,
                     });
                     await redis.set(notificationThrottleKey, 'true');
                     await redis.expire(notificationThrottleKey, 60 * 60);
