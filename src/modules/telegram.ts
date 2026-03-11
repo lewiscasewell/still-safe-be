@@ -110,10 +110,22 @@ export async function startTelegramPolling() {
     })();
 }
 
+function formatTimestamp(ts: string): string {
+    const num = parseInt(ts, 10);
+    if (isNaN(num)) return ts;
+    return new Date(num * 1000).toLocaleString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
 async function handleStatus() {
     const heartbeat = await redis.get('heartbeat');
     if (heartbeat) {
-        await sendTelegramMessage(`✅ Device is <b>online</b>\nLast heartbeat: ${heartbeat}`);
+        await sendTelegramMessage(`✅ Device is <b>online</b>\nLast heartbeat: ${formatTimestamp(heartbeat)}`);
     } else {
         await sendTelegramMessage('⚠️ Device is <b>offline</b>\nNo recent heartbeat detected.');
     }
@@ -133,7 +145,7 @@ async function handleAlerts(showAll: boolean) {
         if (!showAll && value === 'ack') continue;
         const { type, date } = parseAlertKey(key);
         const status = value === 'ack' ? '✅' : '🔴';
-        alerts.push(`${status} <b>${type}</b> — ${date} — <code>${key}</code>`);
+        alerts.push(`${status} <b>${type}</b> — ${date}`);
     }
 
     if (alerts.length === 0) {
