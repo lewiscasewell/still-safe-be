@@ -4,13 +4,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      # your code should read the key from this path:
-      APPLE_KEY_PATH: /run/secrets/apple_key.p8
       REDIS_URL: redis://redis:6379
     env_file:
       - /home/lewiscasewell/secrets/.env
-    volumes:
-      - /home/lewiscasewell/secrets/AuthKey_R8A7PNSD3V.p8:/run/secrets/apple_key.p8:ro
     expose:
       - "3000"
     ports:

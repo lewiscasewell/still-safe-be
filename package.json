@@ -9,8 +9,6 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@simplewebauthn/server": "^13.1.2",
-    "apn": "^2.2.0",
     "cronbake": "^0.1.2",
     "hono": "^4.8.9"
   },

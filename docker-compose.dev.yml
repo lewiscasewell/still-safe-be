@@ -8,12 +8,9 @@ services:
       NODE_ENV: development
       PORT: 3000
       REDIS_URL: redis://redis:6379
-      APPLE_KEY_PATH: /app/AuthKey_R8A7PNSD3V.p8
     env_file:
       - .env
     volumes:
-      # Mount the local key file for development
-      - ./AuthKey_R8A7PNSD3V.p8:/app/AuthKey_R8A7PNSD3V.p8:ro
       # Mount source for hot reload (if you want)
       - ./src:/app/src:ro
     ports:
